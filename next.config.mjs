@@ -18,9 +18,6 @@ const nextConfig = {
     );
     return config;
   },
-  eslint: {
-    dirs: ["."], //or ['pages', 'hooks']
-  },
 };
 
 export default nextConfig;
