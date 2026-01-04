@@ -1,13 +1,22 @@
 import { createSchema, createYoga } from 'graphql-yoga';
+import { GraphQLJSON } from 'graphql-type-json';
 import { esm, pmp, foresight } from '@/lib/mock-data';
+import { kvStore } from '@/lib/kv-store';
 
 const { handleRequest } = createYoga({
   schema: createSchema({
     typeDefs: /* GraphQL */ `
+      scalar JSON
+
       type Query {
         esm: ESMQuery
         pmp: PMPQuery
         foresight: ForesightQuery
+        kv(key: String!): JSON
+      }
+
+      type Mutation {
+        setKv(key: String!, value: JSON!, metadata: JSON): JSON
       }
 
       type ESMQuery {
@@ -83,21 +92,28 @@ const { handleRequest } = createYoga({
       }
     `,
     resolvers: {
+      JSON: GraphQLJSON,
       Query: {
         esm: () => ({}),
         pmp: () => ({}),
         foresight: () => ({}),
+        kv: (_: any, { key }: { key: string }) => kvStore.get(key),
+      },
+      Mutation: {
+        setKv: (_: any, { key, value, metadata }: { key: string; value: any; metadata?: any }) => 
+          kvStore.set(key, value, metadata),
       },
       ESMQuery: {
-        stations: () => esm.getStations(),
-        metrics: (_: any, { stationId }: { stationId: string }) => esm.getMetrics(stationId),
+        stations: async () => (await kvStore.get('esm:stations')) || esm.getStations(),
+        metrics: async (_: any, { stationId }: { stationId: string }) => 
+          (await kvStore.get(`esm:metrics:${stationId}`)) || esm.getMetrics(stationId),
       },
       PMPQuery: {
-        devices: () => pmp.getDevices(),
-        alarms: () => pmp.getAlarms(),
+        devices: async () => (await kvStore.get('pmp:devices')) || pmp.getDevices(),
+        alarms: async () => (await kvStore.get('pmp:alarms')) || pmp.getAlarms(),
       },
       ForesightQuery: {
-        portfolio: () => foresight.getPortfolio(),
+        portfolio: async () => (await kvStore.get('foresight:portfolio')) || foresight.getPortfolio(),
       }
     },
   }),
